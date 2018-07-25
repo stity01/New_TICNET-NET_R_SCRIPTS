@@ -1,0 +1,698 @@
+---
+title: "TICNET-NET_results"
+author: "Stephanie Lefebvre"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+#output: pdf_document
+output: html_document # output file in html format
+# output: word_document # output file in word format
+# output: md_document # output file in in markdown format
+# output: slidy_presentation # output file in in slide format
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE}
+# knitr options
+knitr::opts_chunk$set(echo = FALSE) # TRUE to print
+# Setup {#setup}
+```
+
+```{r}
+rm(list=ls()) # clears environment
+
+# libraries
+library(knitr) #to export/construct file
+library(plyr) #for the summarySE
+library(ggplot2) #graph and figures
+library(gridExtra) #multi graph
+library(xtable) #make table
+library(pander) #something ^^
+library(nlme) #statistics
+library(lsmeans)#statistics
+library(corrplot)#table correlation
+source("D:/Documents/Projects_LA/R_scripts/summarySE.R")
+```
+**3.1. Neurophysiological measurements**\
+*3.1.1. Thresholds summary*\
+
+```{r}
+# reads.csv reads a csv file and creates a data frame (e.g., group)
+TMS_base <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/TMS_base.csv", sep=";", na.strings="n/a")
+View(TMS_base)
+#factors
+TMS_base$responders<-factor(TMS_base$responders)
+TMS_base$subjects<-factor(TMS_base$ï..subject)
+TMS_base$activestim<-factor(TMS_base$group)
+TMS_base$group<-factor(TMS_base$group3)
+TMS_base_nr<-subset(TMS_base,activestim=='stim')
+#summary
+Table_RMT_group<-summarySE(TMS_base, measurevar="RMT", groupvars=c("group"),na.rm=TRUE)
+pander(Table_RMT_group, caption ='RMT by group')
+anovaRMT <- aov(RMT~ group, data=TMS_base)
+pander(anovaRMT,caption='One-way ANOVA RMT')
+Table_S0.75mV_group<-summarySE(TMS_base, measurevar="S0.75mV", groupvars=c("group"),na.rm=TRUE)
+pander(Table_S0.75mV_group, caption ='S0.75mV by group')
+anovaS0.75mV <- aov(S0.75mV~ group, data=TMS_base)
+pander(anovaS0.75mV,caption='One-way ANOVA S0.75mV')
+```
+
+
+*3.1.2. MEP changes*\
+3.1.2.1. 3 groups\
+
+```{r}
+# reads.csv reads a csv file and creates a data frame (e.g., group)
+TMS_all <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/TMS_3_groups_effects.csv", sep=";", na.strings="n/a")
+View(TMS_all)
+#factor
+TMS_all$responders<-factor(TMS_all$responder)
+TMS_all$subjects<-factor(TMS_all$ï..subject)
+TMS_all$activestim<-factor(TMS_all$group)
+TMS_all$group<-factor(TMS_all$group3)
+TMS_all$time<-factor(TMS_all$time,label=c("baseline","post-tDCS"))
+
+#summary
+Table_MEP_overTime<-summarySE(TMS_all, measurevar="MEP", groupvars=c("group","time"),na.rm=TRUE)
+pander(Table_MEP_overTime, caption ='MEP over time per group')
+
+
+
+
+
+
+
+
+lmeMEP <- lme(MEP~group*time, random=~1|subjects, data=TMS_all,na.action=na.exclude)
+anovaMEP<-anova(lmeMEP)
+pander(anovaMEP, caption='Repeated-measures ANOVA MEP')
+
+```
+
+```{r, echo=TRUE}
+posthoc1<-lsmeans(lmeMEP, pairwise ~ group|time)
+posthoc1
+posthoc2<-lsmeans(lmeMEP, pairwise ~ time|group)
+posthoc2
+
+```
+3.1.2.2. active stim group\
+
+```{r}
+#summary
+Table_MEP_overTime_activestim<-summarySE(TMS_all, measurevar="MEP", groupvars=c("time","activestim"),na.rm=TRUE)
+pander(Table_MEP_overTime_activestim, caption ='MEP over time stim vs sham')
+lmeMEP2 <- lme(MEP~activestim*time, random=~1|subjects, data=TMS_all,na.action=na.exclude)
+anovaMEP2<-anova(lmeMEP2)
+pander(anovaMEP2, caption='Repeated-measures ANOVA MEP activestim vs sham')
+```
+
+```{r, echo=TRUE}
+posthoc1<-lsmeans(lmeMEP2, pairwise ~ activestim|time)
+posthoc1
+posthoc2<-lsmeans(lmeMEP2, pairwise ~ time|activestim)
+posthoc2
+
+```
+
+
+3.1.2.3. Interindividual variability\
+```{r}
+TMS_base$MEP_imp <- ifelse(TMS_base$ratio.MEP>1, 1, 0)
+TMS_base[38,13]=0
+```
+
+```{r}
+tbl_contingency = table(TMS_base$MEP_imp, TMS_base$group) 
+pander(tbl_contingency, caption='MEP improvement post vs baseline accross group')
+pander(chisq.test(tbl_contingency),caption="Chi-square repartition")
+```
+
+```{r}
+TMS_all$MEP_imp=TMS_all$responders
+TMS_all[59,12]=TMS_base[30,13]
+TMS_all[60,12]=TMS_base[31,13]
+TMS_all[61,12]=TMS_base[32,13]
+TMS_all[62,12]=TMS_base[33,13]
+TMS_all[63,12]=TMS_base[34,13]
+TMS_all[64,12]=TMS_base[35,13]
+TMS_all[65,12]=TMS_base[36,13]
+TMS_all[66,12]=TMS_base[37,13]
+TMS_all[67,12]=TMS_base[38,13]
+TMS_all[68,12]=TMS_base[39,13]
+TMS_all[69,12]=TMS_base[40,13]
+TMS_all[70,12]=TMS_base[41,13]
+TMS_all[71,12]=TMS_base[42,13]
+TMS_all[72,12]=TMS_base[43,13]
+TMS_all[73,12]=TMS_base[44,13]
+TMS_all[74,12]=TMS_base[45,13]
+TMS_all[75,12]=TMS_base[30,13]
+TMS_all[76,12]=TMS_base[31,13]
+TMS_all[77,12]=TMS_base[32,13]
+TMS_all[78,12]=TMS_base[33,13]
+TMS_all[79,12]=TMS_base[34,13]
+TMS_all[80,12]=TMS_base[35,13]
+TMS_all[81,12]=TMS_base[36,13]
+TMS_all[82,12]=TMS_base[37,13]
+TMS_all[83,12]=TMS_base[38,13]
+TMS_all[84,12]=TMS_base[39,13]
+TMS_all[85,12]=TMS_base[40,13]
+TMS_all[86,12]=TMS_base[41,13]
+TMS_all[87,12]=TMS_base[42,13]
+TMS_all[88,12]=TMS_base[43,13]
+TMS_all[89,12]=TMS_base[44,13]
+TMS_all[90,12]=TMS_base[45,13]
+
+```
+
+
+```{r fig.height=15, fig.width=8}
+p1<-ggplot(data = subset(TMS_all,group=='M1'), aes(x = time, y = MEP, group = subjects, colour = MEP_imp)) +
+    ylim(0,7)+
+    theme_bw() + scale_colour_manual(values=rep(c("#9112B4","#FF3346")))+
+    labs(list(title="M1",y = paste("MEP peak-to-peak amplitude mV"),x="Timing")) + 
+    geom_line(size=1)+ geom_point(size=3) + theme(legend.position="none")+
+    theme(plot.margin = unit(c(1,3,1,3), "cm"))+ 
+    theme(axis.title.y=element_text(margin=margin(0,20,0,0)),axis.title.x=element_text(margin=margin(20,20,0,0)))
+p2<-ggplot(data = subset(TMS_all,group=='PMd'), aes(x = time, y = MEP, group = subjects, colour = MEP_imp)) +
+    ylim(0,7)+
+    theme_bw() + scale_colour_manual(values=rep(c("#9112B4","#ff7400")))+
+    labs(list(title = "PMd", y = paste("MEP peak-to-peak amplitude mV"),x="Timing")) + 
+    geom_line(size=1)+ geom_point(size=3) + theme(legend.position="none")+
+    theme(plot.margin = unit(c(1,3,1,3), "cm"))+ theme(axis.title.y=element_text(margin=margin(0,20,0,0)),
+                                                      axis.title.x=element_text(margin=margin(20,20,0,0)))
+p3<-ggplot(data = subset(TMS_all,group=='sham'), aes(x = time, y = MEP, group = subjects, colour = MEP_imp)) +
+    ylim(0,7)+
+    theme_bw() + scale_colour_manual(values=rep(c("#9112B4","#11840D")))+
+    labs(list(title = "sham", y = paste("MEP peak-to-peak amplitude mV"),x="Timing")) + 
+    geom_line(size=1)+ geom_point(size=3) + theme(legend.position="none")+
+	theme(plot.margin = unit(c(1,3,1,3), "cm"))+ theme(axis.title.y=element_text(margin=margin(0,20,0,0)),
+                                                      axis.title.x=element_text(margin=margin(20,20,0,0)))
+grid.arrange(p1,p2,p3,  nrow = 3, ncol=1)
+
+```
+
+
+3.1.2.4 Improvement in responders subgroup\
+
+```{r}
+TMS_all_nr<-subset(TMS_all,activestim=='stim')
+Table_MEPresp_overTime<-summarySE(TMS_all_nr, measurevar="MEP", groupvars=c("group","time"),na.rm=TRUE)
+pander(Table_MEPresp_overTime, caption ='MEP over time per group in the responders subgroup')
+lmeMEP3 <- lme(MEP~group*time, random=~1|subjects, data=TMS_all_nr,na.action=na.exclude)
+anovaMEP3<-anova(lmeMEP3)
+pander(anovaMEP3, caption='Repeated-measures ANOVA MEP accross groups in the responders subgroup')
+```
+
+```{r, echo=TRUE}
+posthoc3<-lsmeans(lmeMEP3, pairwise ~ group|time)
+posthoc3
+posthoc4<-lsmeans(lmeMEP3, pairwise ~ time|group)
+posthoc4
+
+```
+
+*Additional ratio_MEP analyses*
+comparision accross 3 groups
+```{r}
+Table_MEPratio<-summarySE(TMS_base, measurevar="ratio.MEP", groupvars=c("group"),na.rm=TRUE)
+pander(Table_MEPratio, caption ='ratio MEP (post/baseline) between group')
+#lmeMEP3 <- lme(MEP~group*time, random=~1|subjects, data=TMS_all_nr,na.action=na.exclude)
+aovratioMEP<-aov(ratio.MEP ~ group, data=TMS_base)
+pander(aovratioMEP, caption='One-Way ANOVA ratio MEP accross groups')
+```
+
+
+comparison between stimulation and sham
+
+```{r}
+Table_MEPratioAC<-summarySE(TMS_base, measurevar="ratio.MEP", groupvars=c("activestim"),na.rm=TRUE)
+pander(Table_MEPratioAC, caption ='MEP over time stim vs sham')
+aovratioMEP2<-aov(ratio.MEP ~ activestim, data=TMS_base)
+pander(aovratioMEP2, caption='One-Way ANOVA ratio MEP activestim vs sham')
+
+```
+
+*3.1.3. ratio MEP-SICI changes*\
+3.1.3.1 3 groups\
+
+```{r}
+Table_ratioSICI<-summarySE(TMS_all, measurevar="ratio.MEP.SICI", groupvars=c("group","time"),na.rm=TRUE)
+pander(Table_ratioSICI, caption ='ratio MEP-SICI changes over time per group')
+lmesici <- lme(ratio.MEP.SICI~group*time, random=~1|subjects, data=TMS_all,na.action=na.exclude)
+anovaMEP<-anova(lmesici)
+pander(anovaMEP, caption='Repeated-measures ANOVA ratio MEP-SICI changes')
+
+```
+
+```{r, echo=TRUE}
+posthoc5<-lsmeans(lmesici, pairwise ~ group|time)
+posthoc5
+posthoc6<-lsmeans(lmesici, pairwise ~ time|group)
+posthoc6
+
+```
+
+
+3.1.3.2.responders subgroups\
+
+```{r}
+Table_ratioSICIresp<-summarySE(TMS_all_nr, measurevar="ratio.MEP.SICI", groupvars=c("group","time"),na.rm=TRUE)
+pander(Table_ratioSICIresp, caption ='ratio MEP/SICI over time per group in the responders subgroup')
+lme_ratioSICIresp<- lme(ratio.MEP.SICI~group*time, random=~1|subjects, data=TMS_all_nr,na.action=na.exclude)
+anova_ratioSICIresp<-anova(lme_ratioSICIresp)
+pander(anova_ratioSICIresp, caption='Repeated-measures ANOVA MEP accross groups in the responders subgroup')
+```
+
+```{r, echo=TRUE}
+posthoc7<-lsmeans(lme_ratioSICIresp, pairwise ~ group|time)
+posthoc7
+posthoc8<-lsmeans(lme_ratioSICIresp, pairwise ~ time|group)
+posthoc8
+```
+  
+
+**3.2. Resting-state functional MRI **\
+*3.2.1. Whole brain ICA*\
+
+
+*3.2.2 seed-to-seed*
+3.2.2.1. external correlation
+```{r}
+CON_beg <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/con_beg.csv", sep=";", na.strings="n/a")
+View(CON_beg)
+CON_beg$responders<-factor(CON_beg$responders)
+CON_beg$subjects<-factor(CON_beg$ï..subject)
+CON_beg$group<-factor(CON_beg$group)
+CON_beg_g01<-subset(CON_beg,group=='g01')
+CON_beg_g02<-subset(CON_beg,group=='g02')
+CON_dur <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/con_dur.csv", sep=";", na.strings="n/a")
+View(CON_dur)
+CON_dur$subjects<-factor(CON_dur$ï..subject)
+CON_dur$group<-factor(CON_dur$group)
+CON_after <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/con_after.csv", sep=";", na.strings="n/a")
+View(CON_after)
+CON_after$responders<-factor(CON_after$responders)
+CON_after$subjects<-factor(CON_after$subject)
+CON_after$group<-factor(CON_after$group)
+CON_all <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/con_all.csv", sep=";", na.strings="n/a")
+View(CON_all)
+CON_all$time<-factor(CON_all$ï..time)
+CON_all$connection<-factor(CON_all$connection)
+CON_all$group<-factor(CON_all$group)
+CON_all_g01<-subset(CON_all, group=='g01')
+CON_all_g01_base<-subset(CON_all_g01,time=='baseline')
+CON_all_g01_dur<-subset(CON_all_g01,time=='during')
+CON_all_g01_after<-subset(CON_all_g01,time=='after')
+CON_all_g02<-subset(CON_all,group=='g02')
+CON_all_g02_base<-subset(CON_all_g02,time=='baseline')
+CON_all_g02_dur<-subset(CON_all_g02,time=='during')
+CON_all_g02_after<-subset(CON_all_g02,time=='after')
+CON_all_g03<-subset(CON_all,group=='g03')
+CON_all_g03_base<-subset(CON_all_g03,time=='baseline')
+CON_all_g03_dur<-subset(CON_all_g03,time=='during')
+CON_all_g03_after<-subset(CON_all_g03,time=='after')
+```
+
+**Motor network organisation before, during and after tDCS between groups**
+
+```{r }
+matcorrplot_g01 <-CON_all_g01_base
+matcorrplot_g01$ï..time<-NULL
+matcorrplot_g01$group<-NULL
+matcorrplot_g01$time<-NULL
+matcorrplot_g01$base <-CON_all_g01_base$data
+matcorrplot_g01$dur <-CON_all_g01_dur$data
+matcorrplot_g01$after <-CON_all_g01_after$data
+matcorrplot_g01$data<-NULL
+rownames(matcorrplot_g01) <- matcorrplot_g01[,1]
+matcorrplot_g01$connection<-NULL
+matcorrplot_g01<-as.matrix(matcorrplot_g01, rownames.force = TRUE)
+matcorrplot_g02 <-CON_all_g02_base
+matcorrplot_g02$ï..time<-NULL
+matcorrplot_g02$group<-NULL
+matcorrplot_g02$time<-NULL
+matcorrplot_g02$base <-CON_all_g02_base$data
+matcorrplot_g02$dur <-CON_all_g02_dur$data
+matcorrplot_g02$after <-CON_all_g02_after$data
+matcorrplot_g02$data<-NULL
+rownames(matcorrplot_g02) <- matcorrplot_g02[,1]
+matcorrplot_g02$connection<-NULL
+matcorrplot_g02<-as.matrix(matcorrplot_g02, rownames.force = TRUE)
+matcorrplot_g03 <-CON_all_g03_base
+matcorrplot_g03$ï..time<-NULL
+matcorrplot_g03$group<-NULL
+matcorrplot_g03$time<-NULL
+matcorrplot_g03$base <-CON_all_g03_base$data
+matcorrplot_g03$dur <-CON_all_g03_dur$data
+matcorrplot_g03$after <-CON_all_g03_after$data
+matcorrplot_g03$data<-NULL
+rownames(matcorrplot_g03) <- matcorrplot_g03[,1]
+matcorrplot_g03$connection<-NULL
+matcorrplot_g03<-as.matrix(matcorrplot_g03, rownames.force = TRUE)
+
+par(mfrow=c(1,3))
+corrplot(matcorrplot_g01,method = c("ellipse"),
+            mar=c(3,0,5,3),
+            type = c("full"), 
+            add = FALSE, 
+            col = NULL, 
+            bg = "white", 
+            #title = "", 
+            is.corr = TRUE,
+            addCoef.col = NULL, 
+            addCoefasPercent = FALSE, 
+            order = c("original"), 
+            hclust.method = c("complete"), 
+             addrect = NULL, 
+             rect.col = "black", 
+             rect.lwd = 2, 
+             tl.pos = NULL, 
+             tl.cex = 1.3, 
+             tl.col = "red", 
+             tl.offset = 1, 
+             tl.srt = 70, 
+            cl.pos = NULL, 
+            cl.lim = NULL, 
+            cl.length = NULL, 
+            cl.cex = 0.8, 
+            cl.ratio = 0.50, 
+            cl.align.text = "c", 
+            cl.offset = 0.5)
+mtext("correlation in the motor network M1 group",adj=0.8, at=2.5, line=-0.5, cex=0.7)
+
+corrplot(matcorrplot_g02,method = c("ellipse"),
+            mar=c(3,0,5,3),
+            type = c("full"), 
+            add = FALSE, 
+            col = NULL, 
+            bg = "white", 
+         #   title = "correlation in the motor network PMd group", 
+            is.corr = TRUE,
+            addCoef.col = NULL, 
+            addCoefasPercent = FALSE, 
+            order = c("original"), 
+            hclust.method = c("complete"), 
+             addrect = NULL, 
+             rect.col = "black", 
+             rect.lwd = 2, 
+             tl.pos = NULL, 
+             tl.cex = 1.3, 
+             tl.col = "red", 
+             tl.offset = 1, 
+             tl.srt = 70, 
+            cl.pos = NULL, 
+            cl.lim = NULL, 
+            cl.length = NULL, 
+            cl.cex = 0.8, 
+            cl.ratio = 0.50, 
+            cl.align.text = "c", 
+            cl.offset = 0.5)
+mtext("correlation in the motor network PMd group",adj=0.8, at=2.5, line=-0.5, cex=0.7)
+
+corrplot(matcorrplot_g03,method = c("ellipse"),
+            mar=c(3,0,5,3),
+            type = c("full"), 
+            add = FALSE, 
+            col = NULL, 
+            bg = "white", 
+            #title = "correlation in the motor network sham group", 
+            is.corr = TRUE,
+            addCoef.col = NULL, 
+            addCoefasPercent = FALSE, 
+            order = c("original"), 
+            hclust.method = c("complete"), 
+             addrect = NULL, 
+             rect.col = "black", 
+             rect.lwd = 2, 
+             tl.pos = NULL, 
+             tl.cex = 1.3, 
+             tl.col = "red", 
+             tl.offset = 1, 
+             tl.srt = 70, 
+            cl.pos = NULL, 
+            cl.lim = NULL, 
+            cl.length = NULL, 
+            cl.cex = 0.8, 
+            cl.ratio = 0.50, 
+            cl.align.text = "c", 
+            cl.offset = 0.5)
+mtext("correlation in the motor network sham group",adj=0.8, at=2.5, line=-0.5, cex=0.7)
+```
+
+
+```{r}
+rankcorr_g01_bd<-cor.test(~CON_all_g01_base$data+ CON_all_g01_dur$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g01_bd,
+       caption = "Correlation between baseline and during in g01")
+
+rankcorr_g01_ba<-cor.test(~CON_all_g01_base$data+ CON_all_g01_after$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g01_ba,
+       caption = "Correlation between baseline and after in g01")
+
+
+rankcorr_g01_da<-cor.test(~CON_all_g01_dur$data+ CON_all_g01_after$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g01_da,
+       caption = "Correlation between during and after in g01")
+
+```
+
+
+**Comparison correlation**\
+[link] (http://comparingcorrelations.org/)
+
+*baseline - during vs baseline after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = -0.6362, df = 19, p-value = 0.5
+Null hypothesis retained
+
+*baseline - during vs during after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = 1.2926, df = 19, p-value = 0.2
+Null hypothesis retained
+
+*baseline - after vs during after*
+hotelling1940: Hotelling's t (1940)
+
+t = 1.9289, df = 19, p-value = 0.07
+Null hypothesis retained
+
+
+*should be corrected for 3 comparison*
+
+```{r}
+rankcorr_g02_bd<-cor.test(~CON_all_g02_base$data+ CON_all_g02_dur$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g02_bd,
+       caption = "Correlation between baseline and during in g02")
+
+rankcorr_g02_ba<-cor.test(~CON_all_g02_base$data+ CON_all_g02_after$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g02_ba,
+       caption = "Correlation between baseline and after in g02")
+
+
+rankcorr_g02_da<-cor.test(~CON_all_g02_dur$data+ CON_all_g02_after$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g02_da,
+       caption = "Correlation between during and after in g02")
+
+```
+
+**Comparison correlation**\
+[link] (http://comparingcorrelations.org/)
+
+*baseline - during vs baseline after*
+
+hotelling1940: Hotelling's t (1940)
+
+
+t = 0.0000, df = 19, p-value = 1.0000
+Null hypothesis retained
+
+*baseline - during vs during after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = -0.7032, df = 19, p-value = 0.4905
+Null hypothesis retained
+
+
+*baseline - after vs during after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = -0.7032, df = 19, p-value = 0.4905
+Null hypothesis retained
+
+
+```{r}
+rankcorr_g03_bd<-cor.test(~CON_all_g03_base$data+ CON_all_g03_dur$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g03_bd,
+       caption = "Correlation between baseline and during in g03")
+
+rankcorr_g03_ba<-cor.test(~CON_all_g03_base$data+ CON_all_g03_after$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g03_ba,
+       caption = "Correlation between baseline and after in g03")
+
+
+rankcorr_g03_da<-cor.test(~CON_all_g03_dur$data+ CON_all_g03_after$data, 
+         method = "spearman",
+          continuity = FALSE,
+          conf.level = 0.95)
+pander(rankcorr_g03_da,
+       caption = "Correlation between during and after in g03")
+
+```
+
+**Comparison correlation**\
+[link] (http://comparingcorrelations.org/)
+*baseline - during vs baseline after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = -0.5662, df = 19, p-value = 0.5779
+Null hypothesis retained
+
+*baseline - during vs during after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = -0.4542, df = 19, p-value = 0.6548
+Null hypothesis retained
+
+*baseline - after vs during after*
+
+hotelling1940: Hotelling's t (1940)
+
+t = -0.1120, df = 19, p-value = 0.9120
+Null hypothesis retained
+
+
+3.2.2.2. map-based
+
+
+3.3. Resting-state multi-scale entropy (filter 0.01-0.1Hz)
+3.3.1. Averaged MSE
+```{r}
+# reads.csv reads a csv file and creates a data frame (e.g., group)
+entropy <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/Global_Entropy.csv", sep=";", na.strings="n/a")
+View(entropy)
+entropy$time<-factor(entropy$time)
+entropy$activestim<-factor(entropy$activestim)
+entropy$group<-factor(entropy$group)
+entropy$subjects<-factor(entropy$code)
+```
+3.3.2.Individual scales
+**entropy dataset**
+
+3.5. Prediction of tDCS effects
+3.5.1. Amount of MEP changes correlation
+```{r}
+TMS_base_g01<-subset(TMS_base,group=='M1')
+TMS_base_g02<-subset(TMS_base,group=='PMd')
+```
+3.5.1.1. initial resting motor threshold
+
+**TMS_base_g01**
+**TMS_base_g02**
+**datasets**
+
+3.5.1.2. baseline connectivity
+
+**CON_beg dataset**-correlation connectivity pair/MEP amplitude after tDCS
+
+3.5.1.3. baseline entropy
+```{r}
+entropy_base<-subset(entropy,time=='baseline')
+entropy_base_nr<-subset(entropy_base,activestim=='stim')
+```
+
+3.5.1.4. cortical thickness
+```{r}
+thick <- read.csv("D:/Documents/Projects_LA/c0012_TICNET-NET/Analysis/thick.csv", sep=";", na.strings="n/a")
+View(thick)
+thick$responders<-factor(thick$responders)
+thick$subjects<-factor(thick$subject)
+thick$roi<-factor(thick$roi)
+thick$group<-factor(thick$group)
+thick_g01<-subset(thick,group=='g01')
+thick_g01_LM1<-subset(thick_g01,roi=='L_M1')
+thick_g01_RM1<-subset(thick_g01,roi=='R_M1')
+thick_g01_LPMd<-subset(thick_g01,roi=='L_PMd')
+thick_g01_RPMd<-subset(thick_g01,roi=='R_PMd')
+thick_g01_LSMA<-subset(thick_g01,roi=='L_SMA')
+thick_g01_RSMA<-subset(thick_g01,roi=='R_SMA')
+thick_g01_stimROI<-subset(thick_g01,roi=='stim_ROI')
+thick_g02<-subset(thick,group=='g02')
+thick_g02_LM1<-subset(thick_g02,roi=='L_M1')
+thick_g02_RM1<-subset(thick_g02,roi=='R_M1')
+thick_g02_LPMd<-subset(thick_g02,roi=='L_PMd')
+thick_g02_RPMd<-subset(thick_g02,roi=='R_PMd')
+thick_g02_LSMA<-subset(thick_g02,roi=='L_SMA')
+thick_g02_RSMA<-subset(thick_g02,roi=='R_SMA')
+thick_g02_stimROI<-subset(thick_g02,roi=='stim_ROI')
+
+```
+
+*3.5.2. Responders-nonresponders prediction*
+3.5.2.1. Initial neurophysiological 
+
+
+```{r}
+Table_RMT_respondersbygroup<-summarySE(TMS_base_nr, measurevar="RMT", groupvars=c("group","responders"),na.rm=TRUE)
+pander(Table_RMT_respondersbygroup, caption ='RMT_responders by group')
+ttest_RMT_NR <- t.test(TMS_base_nr$RMT~TMS_base_nr$responders)
+pander(ttest_RMT_NR, caption= 't-test RMT responders vs non-responders')
+Table_S0.75mV_respondersbygroup<-summarySE(TMS_base_nr, measurevar="S0.75mV", groupvars=c("group","responders"),na.rm=TRUE)
+pander(Table_S0.75mV_respondersbygroup,caption ='S0.75mV_responders by group')
+ttest_S0.75mV_NR <- t.test(TMS_base_nr$S0.75mV~TMS_base_nr$responders)
+pander(ttest_S0.75mV_NR, caption= 't-test S0.75mV responders vs non-responders')
+```
+
+3.5.2.2. baseline connectivity
+
+**CON_beg dataset**-t-test connectivity pair/MEP amplitude after tDCS
+
+
+3.5.2.3. baseline entropy
+
+**entropy_base_nr**
+
+3.5.2.4. cortical thickness
+
+```{r}
+thick_all_LM1<-subset(thick,roi=='L_M1')
+thick_all_RM1<-subset(thick,roi=='R_M1')
+thick_all_LPMd<-subset(thick,roi=='L_PMd')
+thick_all_RPMd<-subset(thick,roi=='R_PMd')
+thick_all_LSMA<-subset(thick,roi=='L_SMA')
+thick_all_RSMA<-subset(thick,roi=='R_SMA')
+thick_all_stimROI<-subset(thick,roi=='stim_ROI')
+
+
+```
